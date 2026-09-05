@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="DytP3u1hGsFUCJmdneNLfz">
+<head data-page-node-id="2BLcbm4XzSphwnPeOzFx0a">
+<meta charset="UTF-8" data-page-node-id="RxjxsQsLAfDodbTnTxwPaZ">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="uCvqCHRJH5x4f17iOzSEvl">
+<title>串口文件 / 字节流收发工具</title>
+<style>
+  :root {
+    --bg: #f5f7fa;
+    --panel: #ffffff;
+    --border: #d9dee5;
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --danger: #dc2626;
+    --danger-dark: #b91c1c;
+    --ok: #16a34a;
+    --text: #1f2933;
+    --muted: #6b7280;
+    --rx: #065f46;
+    --rx-bg: #ecfdf5;
+    --tx: #9a3412;
+    --tx-bg: #fff7ed;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  header {
+    padding: 14px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  header h1 { font-size: 17px; margin: 0; }
+  header .status { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #cbd5e1; }
+  .dot.on { background: var(--ok); }
+  .dot.err { background: var(--danger); }
+  main {
+    max-width: 1100px;
+    margin: 16px auto;
+    padding: 0 16px;
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .panel h2 { font-size: 14px; margin: 0 0 12px; color: var(--primary-dark); }
+  .field { margin-bottom: 11px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  select, input[type="text"], input[type="number"], textarea {
+    width: 100%;
+    padding: 7px 9px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13px;
+    background: #fff;
+    color: var(--text);
+    font-family: inherit;
+  }
+  textarea { resize: vertical; font-family: var(--mono); }
+  .row { display: flex; gap: 8px; }
+  .row > .field { flex: 1; }
+  button {
+    cursor: pointer;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--primary);
+    transition: background .15s;
+  }
+  button:hover { background: var(--primary-dark); }
+  button:disabled { background: #cbd5e1; cursor: not-allowed; }
+  button.ghost { background: #fff; color: var(--primary-dark); border: 1px solid var(--border); }
+  button.ghost:hover { background: #f1f5f9; }
+  button.danger { background: var(--danger); }
+  button.danger:hover { background: var(--danger-dark); }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .btn-row button { flex: 1; min-width: 90px; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .seg button { background: #fff; color: var(--text); border: none; border-radius: 0; padding: 6px 12px; font-weight: 500; }
+  .seg button.active { background: var(--primary); color: #fff; }
+  .sep { height: 1px; background: var(--border); margin: 14px 0; }
+  .stats { display: flex; gap: 16px; font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .stats b { color: var(--text); font-family: var(--mono); }
+  .log {
+    background: #0f172a;
+    color: #e2e8f0;
+    border-radius: 8px;
+    padding: 10px;
+    height: 360px;
+    overflow-y: auto;
+    font-family: var(--mono);
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .log .tx { color: #fdba74; }
+  .log .rx { color: #6ee7b7; }
+  .log .sys { color: #94a3b8; }
+  .hint { font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .checkbox { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text); margin-bottom: 8px; }
+  .checkbox input { width: auto; }
+  .fileinfo { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .full { grid-column: 1 / -1; }
+</style>
+</head>
+<body data-page-node-id="kStpYOSHChF2HpMRjVTreD">
+<header data-page-node-id="tcysAUwozjtZSEVQ4GCXbd">
+  <h1 data-page-node-id="Mt9u1Jk9ZWuTgxF8UDBX0j">串口文件 / 字节流收发工具</h1>
+  <div class="status" data-page-node-id="Txs9qpflq66e2TgFiyNUZc">
+    <span class="dot" id="statusDot" data-page-node-id="HFKfzXPNKlZXoik5LZ8HAE"></span>
+    <span id="statusText" data-page-node-id="w8aaDbCZPJlidle2nBDMb5">未连接</span>
+  </div>
+</header>
+
+<main data-page-node-id="1v1a2NPvrv69Lea7zCRfQn">
+  <!-- 左侧：连接与参数 -->
+  <section class="panel" data-page-node-id="wCdetprIcrXQMMn1xoZGJh">
+    <h2 data-page-node-id="DqrfUkGHOBCKFbywp9N6uQ">连接设置</h2>
+    <div class="field" data-page-node-id="it7Ad0g7uvLnklbxVYPtha">
+      <label data-page-node-id="FyjEeWqvZtwjYFCZfYAmxX">波特率 (Baud Rate)</label>
+      <select id="baudRate" data-page-node-id="dWHLEwmxAsmKKAJjEFzZmw">
+        <option data-page-node-id="NIzNdeaKnMFMvKlycSbHf9">1200</option>
+        <option data-page-node-id="ODv6VWq0fjAbZK2d0Bvbxq">2400</option>
+        <option data-page-node-id="FmoHXhe4ax2OxY3RDwWVkS">4800</option>
+        <option data-page-node-id="xBaer2BVTnJs6OZz0QRNSQ">9600</option>
+        <option data-page-node-id="aQgAHkzjuoxOvJKwXfH6Fq">19200</option>
+        <option data-page-node-id="qSpN1W7tHtMWazv3KGf6Nm">38400</option>
+        <option data-page-node-id="NXqdeTrHxzgJAhBYFfO0Yo">57600</option>
+        <option selected data-page-node-id="4QHYBVu4OVgKwK6uGzWJpu">115200</option>
+        <option data-page-node-id="2sRQcioolL4N8gL2L3PH5P">230400</option>
+        <option data-page-node-id="ZqfZ0xzGDB5T9aAoMQYPGc">460800</option>
+        <option data-page-node-id="N503l6Vmj7hd23AyBBSGCk">921600</option>
+      </select>
+    </div>
+    <div class="row" data-page-node-id="xAhAhzuWClm6S4MWjjafkF">
+      <div class="field" data-page-node-id="auwB4xsXlhzXboB10FEU3p">
+        <label data-page-node-id="eLSqVEnBPEiFbzQnz2aJ3b">数据位</label>
+        <select id="dataBits" data-page-node-id="f1DnBXgav4xa6vzEqQRgBK"><option data-page-node-id="g48oI5LVhsjCXlJYgp2KNa">7</option><option selected data-page-node-id="joHiGe0kUHN7P7FMsICbjX">8</option></select>
+      </div>
+      <div class="field" data-page-node-id="MyAE5QWQcae1EF6h58zRKV">
+        <label data-page-node-id="S46WdWbU2Q7hoQmGzKCdRW">停止位</label>
+        <select id="stopBits" data-page-node-id="MzYZfBmUo86ZAANvfTRfAx"><option selected data-page-node-id="EwP6aOtlClKikOGRQFN9xU">1</option><option data-page-node-id="EWI0pQkn2oVjGghdo9pxRA">2</option></select>
+      </div>
+    </div>
+    <div class="row" data-page-node-id="KR8zwdUFlrp9o6NF5S9N6R">
+      <div class="field" data-page-node-id="67Mh2QXMaaGizD6q5dug5l">
+        <label data-page-node-id="2S2C28UTUbXUF8xzFW6g1o">校验位</label>
+        <select id="parity" data-page-node-id="sRvAL3ewjvFA3ZmkovI86s">
+          <option value="none" selected data-page-node-id="ZB6yf0olNePX2Ys3BDvZIt">无 (None)</option>
+          <option value="even" data-page-node-id="wRAZUgquFUSK4jnPhQhOms">偶 (Even)</option>
+          <option value="odd" data-page-node-id="170HhcemkzgPkPuhWDfmG4">奇 (Odd)</option>
+        </select>
+      </div>
+      <div class="field" data-page-node-id="61q4Nldwj1whlXlbLKiuFw">
+        <label data-page-node-id="tbk4u8mGCnZpo5E6EY6mTo">流控</label>
+        <select id="flowControl" data-page-node-id="7wNHzXWRcDwWFAOWqyEbV1">
+          <option value="none" selected data-page-node-id="mag9ht7qF05IWZF1JHaExi">无</option>
+          <option value="hardware" data-page-node-id="LNGTqC1Ms8oA1xHFc0jhe5">硬件</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex; gap:22px; margin-top:8px; font-size:12px; color:var(--text); flex-wrap:wrap;">
+      <label style="display:flex; align-items:center; gap:6px;"><input type="checkbox" id="chkDTR"> DTR（默认高电平；勾选=拉低）</label>
+      <label style="display:flex; align-items:center; gap:6px;"><input type="checkbox" id="chkRTS"> RTS（默认高电平；勾选=拉低）</label>
+    </div>
+    <div class="btn-row" data-page-node-id="PBvnLUAub52ruououfBf4B">
+      <button id="btnConnect" data-page-node-id="OeTu5pgEFlLzuwnm7JCUHS">连接串口</button>
+      <button id="btnDisconnect" class="danger" disabled data-page-node-id="yOqVG8F2d6RN5EwHc4iFCG">断开</button>
+    </div>
+
+    <div class="sep" data-page-node-id="AH6gxKyAzX8ObL6gXdDWM5"></div>
+
+    <h2 data-page-node-id="bMPwBDgNBM53PPvz7fUwgj">统计</h2>
+    <div class="stats" data-page-node-id="iNyZghemUJsdyvfrE1C4Yf">
+      <span data-page-node-id="w3y8yEi85PnS8nWz0qddSQ">发送：<b id="txCount" data-page-node-id="3FfO2SbhhpTlOTzCHNBZTG">0</b> B</span>
+      <span data-page-node-id="nOKPbDMQUCqPCuxfJlOz3D">接收：<b id="rxCount" data-page-node-id="igqOiCHPaZtAFtFSseTAyV">0</b> B</span>
+    </div>
+    <div class="hint" id="browserHint" data-page-node-id="14ExAavFxsexyBK7BJOJ24"></div>
+  </section>
+
+  <!-- 右侧：收发 -->
+  <section class="panel" data-page-node-id="U6CYyaG1gdByONGbSjMXO9">
+    <h2 data-page-node-id="1xDqlIjB0KachbWim088o8">发送</h2>
+    <div style="margin-bottom:8px;" data-page-node-id="kiNbSLsf4hE3TDUe0StQic">
+      <span class="seg" id="txMode" data-page-node-id="q0DdPsqyfDH2Dd0hI8XmEn">
+        <button data-mode="text" class="active" data-page-node-id="TklDhhqfP3UMM8g7uMYQ6s">文本</button>
+        <button data-mode="hex" data-page-node-id="DYOzlx9y8O7WiaDPIOnWKZ">十六进制</button>
+      </span>
+    </div>
+    <div class="field" data-page-node-id="8QyNlAAAgf81wCl10c03oX">
+      <textarea id="txInput" rows="3" placeholder="输入要发送的内容…"></textarea>
+    </div>
+    <label class="checkbox" data-page-node-id="fesCpub9GaOALrbn7WeFtu"><input type="checkbox" id="txNewline" checked data-page-node-id="QY9ANT3Bp2WrrYTvZPJbpn"> 文本模式末尾追加换行符 (CR/LF)</label>
+    <div class="btn-row" data-page-node-id="iB6m9yD82u74Cu6wlCgF4k">
+      <button id="btnSend" data-page-node-id="3wI5TGWWJm1DpueXZbQfXH">发送</button>
+      <button id="btnSendFile" class="ghost" data-page-node-id="2Db6clrZVkMJJzYWx2sWrO">发送文件 (字节流)</button>
+      <button id="btnClearTx" class="ghost" data-page-node-id="x7nVyJ1LqOhJPlZiOBimZE">清空</button>
+    </div>
+    <div class="fileinfo" id="txFileInfo" data-page-node-id="eUpEAgJ8Y4YpxyfNMiQR6V">未选择文件</div>
+    <label class="checkbox" style="margin-top:10px;" data-page-node-id="h500tykJhMP9Lo6vMjDRgv"><input type="checkbox" id="autoSend" data-page-node-id="f1UCsMMxDG36pwlp9t8eNW"> 自动发送间隔(ms)：</label>
+    <input type="number" id="autoInterval" value="1000" min="50" step="50" style="max-width:140px;" data-page-node-id="nD7kIH7XIkSPCb6Zdkux2w">
+
+    <div class="sep" data-page-node-id="NnQD3vKBhlo4ycc6mX6ClY"></div>
+
+    <h2 data-page-node-id="h23PTlXi5R9WT4CEqw8aBL">接收</h2>
+    <div style="margin-bottom:8px;" data-page-node-id="N2Mb6yaRIQaZXAeVLGC7QR">
+      <span class="seg" id="rxMode" data-page-node-id="DeUJ8pSSMGxTENehuASqUu">
+        <button data-mode="text" class="active" data-page-node-id="veFRlKETCStavfNuMYbJlw">文本</button>
+        <button data-mode="ascii" data-page-node-id="Kp7o9bQxrT2U1vNmWsLq3a">ASCII转义</button>
+        <button data-mode="hex" data-page-node-id="hC6bU4jEh8kYS1aZMwMM55">十六进制</button>
+      </span>
+      <span class="seg" id="rxWrap" style="margin-left:8px;" data-page-node-id="dngcacIhFlsTinN74eaRau">
+        <button data-wrap="on" class="active" data-page-node-id="QNVChCQnzsReQPAE7h82qi">自动换行</button>
+        <button data-wrap="off" data-page-node-id="LX42c4F7Kphv4Rcfouar3f">不换行</button>
+      </span>
+      <label style="margin-left:10px; font-size:12px; color:var(--muted); display:inline-flex; align-items:center; gap:4px;">
+        编码
+        <select id="rxEncoding" style="width:auto; padding:4px 6px; font-size:12px;">
+          <option value="utf-8" selected>UTF-8</option>
+          <option value="gbk">GBK</option>
+          <option value="latin1">Latin1</option>
+        </select>
+      </label>
+      <label style="margin-left:10px; font-size:12px; color:var(--muted); display:inline-flex; align-items:center; gap:4px;">
+        <input type="checkbox" id="rxReassemble" checked> 按行重组
+      </label>
+    </div>
+    <div class="log" id="rxLog" data-page-node-id="w3axIED2IfOlFI8qh74R1J"></div>
+    <div class="btn-row" style="margin-top:8px;" data-page-node-id="weoQheXugHxhqtHmUjpEXa">
+      <button id="btnSave" class="ghost" data-page-node-id="8gLjeOYRoQcjonPJWlAmlA">保存为文件</button>
+      <button id="btnClearRx" class="ghost" data-page-node-id="5XeVMD9tymULss1fHEotIx">清空接收</button>
+    </div>
+    <label class="checkbox" style="margin-top:8px;" data-page-node-id="C8tq2BFH69rcTQ0YHZDf8e"><input type="checkbox" id="autoSave" data-page-node-id="tUwV3EtAXHHFmhueXpiaxe"> 接收满 <input type="number" id="autoSaveN" value="65536" min="1" style="width:90px; display:inline; margin:0 4px;" data-page-node-id="AQSnXWsFNrUDwifDkPcjtg"> 字节后自动存盘</label>
+  </section>
+</main>
+
+<input type="file" id="filePicker" style="display:none" data-page-node-id="rMQkXL5YHiyzAvVfujvu6V">
+
+<script>
+"use strict";
+
+// ===== DOM =====
+const $ = (id) => document.getElementById(id);
+const statusDot = $("statusDot"), statusText = $("statusText");
+const rxLog = $("rxLog");
+
+// ===== 全局状态 =====
+let port = null;
+let writer = null;
+let reader = null;
+let keepReading = false;
+let readLoopActive = false;
+let rxDecoder = new TextDecoder("utf-8");
+function setRxEncoding() { rxDecoder = new TextDecoder($("rxEncoding").value); }
+$("rxEncoding").addEventListener("change", setRxEncoding);
+$("rxReassemble").addEventListener("change", (e) => {
+  rxReassemble = e.target.checked;
+  rxLineArr = [];
+  if (rxLineTimer) { clearTimeout(rxLineTimer); rxLineTimer = null; }
+});
+let txMode = "text";
+let rxMode = "text";
+let rxWrap = true;
+let rxReassemble = true;   // 按行重组：攒到换行符才显示一整行
+let txCount = 0;
+let rxCount = 0;
+let pendingFile = null;       // 待发送文件
+let receivedChunks = [];      // 已接收字节缓冲（用于存盘）
+let rxLineArr = [];           // 按行重组：跨 read() 攒字节，直到换行符
+let rxLineTimer = null;       // 半行防抖定时器（设备不回换行符时也能刷出）
+// 行重组静默阈值(ms)：连续无新字节达到该时长即判定"一包结束"并刷新显示。
+// 5ms 在 115200bps 下约 57 个字节时间的空闲，判定包边界绰绰有余；显示延迟贴近原生串口软件。
+// 若出现"一行被拆成两行"（设备回包中间有真实停顿），适当调大此值。
+const RX_IDLE_MS = 5;
+
+// 浏览器能力检测
+function isInIframe() { try { return window.self !== window.top; } catch (e) { return true; } }
+if (!("serial" in navigator)) {
+  $("browserHint").textContent = "⚠ 当前浏览器不支持 Web Serial API，请使用 Chrome / Edge 桌面版直接打开本文件。";
+  $("btnConnect").disabled = true;
+} else if (isInIframe()) {
+  $("browserHint").textContent = "⚠ 当前在预览框(iframe)内运行，Web Serial 不可用。请在 Chrome / Edge 中直接打开此 .html 文件再连接。";
+} else {
+  $("browserHint").textContent = "提示：需在 HTTPS 或 localhost/file 协议下运行。";
+}
+
+// ===== 工具函数 =====
+function hexToBytes(str) {
+  // 去除空格、逗号等分隔符，支持 "AA BB" / "AA,BB" / "AABB"
+  const clean = str.replace(/[\s,;]+/g, "");
+  if (clean.length % 2 !== 0) throw new Error("十六进制字节数必须为偶数");
+  if (!/^[0-9a-fA-F]*$/.test(clean)) throw new Error("包含非法十六进制字符");
+  const out = new Uint8Array(clean.length / 2);
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(clean.substr(i * 2, 2), 16);
+  return out;
+}
+function bytesToHex(bytes) {
+  let s = "";
+  for (let i = 0; i < bytes.length; i++) {
+    s += bytes[i].toString(16).padStart(2, "0").toUpperCase() + " ";
+    if ((i + 1) % 16 === 0) s += "\n";
+  }
+  return s.trim();
+}
+// ASCII 转义显示：可打印字符原样显示，控制符/非法字节显式标出
+function asciiEscape(bytes) {
+  let s = "";
+  for (let i = 0; i < bytes.length; i++) {
+    const b = bytes[i];
+    if (b === 0x00) s += "\\0";
+    else if (b === 0x07) s += "\\a";   // 响铃
+    else if (b === 0x08) s += "\\b";   // 退格
+    else if (b === 0x09) s += "\\t";   // 制表
+    else if (b === 0x0A) s += "\\n";   // 换行
+    else if (b === 0x0B) s += "\\v";   // 垂直制表
+    else if (b === 0x0C) s += "\\f";   // 换页
+    else if (b === 0x0D) s += "\\r";   // 回车
+    else if (b === 0x1B) s += "\\e";   // ESC
+    else if (b >= 0x20 && b <= 0x7E) s += String.fromCharCode(b);
+    else s += "\\x" + b.toString(16).padStart(2, "0").toUpperCase();
+  }
+  return s;
+}
+function fmtTimestamp() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.${String(d.getMilliseconds()).padStart(3,"0")}`;
+}
+function logLine(cls, text) {
+  const div = document.createElement("div");
+  div.className = cls;
+  div.textContent = text;
+  rxLog.appendChild(div);
+  rxLog.scrollTop = rxLog.scrollHeight;
+  // 限制日志 DOM 数量，避免内存暴涨
+  while (rxLog.childNodes.length > 4000) rxLog.removeChild(rxLog.firstChild);
+}
+function updateCount() {
+  $("txCount").textContent = txCount;
+  $("rxCount").textContent = rxCount;
+}
+
+// ===== 连接 / 断开 =====
+$("btnConnect").addEventListener("click", async () => {
+  try {
+    port = await navigator.serial.requestPort();
+    const opts = {
+      baudRate: parseInt($("baudRate").value, 10),
+      dataBits: parseInt($("dataBits").value, 10),
+      stopBits: parseInt($("stopBits").value, 10),
+      parity: $("parity").value,
+      flowControl: $("flowControl").value,
+      bufferSize: 65536,
+    };
+    await port.open(opts);
+    // 连接后应用 DTR/RTS。CH340 的 DTR#/RTS# 输出低有效：API true(assert)=引脚低，false=引脚高。
+    // 本电路 DTR 引脚低电平直连 NRST 低（电平触发复位）：不勾选=引脚高=MCU运行；勾选=引脚低=MCU复位。
+    try {
+      // 按「先 RTS 后 DTR」顺序应用：DTR(复位线) 总是最后动作，
+      // 释放复位时 RTS(BOOT0) 已先稳定为低，MCU 复位释放瞬间不会误入 Bootloader
+      await port.setSignals({ requestToSend: $("chkRTS").checked });
+      await port.setSignals({ dataTerminalReady: $("chkDTR").checked });
+      logLine("sys", `[${fmtTimestamp()}] 信号线引脚 DTR=${$("chkDTR").checked ? "低(复位)" : "高(运行)"}, RTS=${$("chkRTS").checked ? "低" : "高"}`);
+    } catch (e) {
+      logLine("sys", `[${fmtTimestamp()}] 设置 DTR/RTS 失败: ${e.message}`);
+    }
+    writer = port.writable.getWriter();
+    statusDot.className = "dot on";
+    statusText.textContent = `已连接 @ ${opts.baudRate} bps`;
+    $("btnConnect").disabled = true;
+    $("btnDisconnect").disabled = false;
+    logLine("sys", `[${fmtTimestamp()}] 已打开串口，参数: ${opts.baudRate},${opts.dataBits}-${opts.stopBits}-${opts.parity}`);
+    keepReading = true;
+    readLoop();
+  } catch (err) {
+    statusDot.className = "dot err";
+    statusText.textContent = "连接失败";
+    logLine("sys", `[${fmtTimestamp()}] 连接错误: ${err.message}`);
+  }
+});
+
+$("btnDisconnect").addEventListener("click", async () => {
+  await disconnect();
+});
+
+// DTR / RTS 实时切换（连接状态下立即生效）
+["chkDTR", "chkRTS"].forEach((id) => {
+  $(id).addEventListener("change", async () => {
+    if (!port) return;
+    try {
+      // 实时切换同样按「先 RTS 后 DTR」顺序，保证释放复位时 BOOT0 已稳定
+      await port.setSignals({ requestToSend: $("chkRTS").checked });
+      await port.setSignals({ dataTerminalReady: $("chkDTR").checked });
+      logLine("sys", `[${fmtTimestamp()}] 信号线引脚 DTR=${$("chkDTR").checked ? "低(复位)" : "高(运行)"}, RTS=${$("chkRTS").checked ? "低" : "高"}`);
+    } catch (e) {
+      logLine("sys", "设置信号线失败: " + e.message);
+    }
+  });
+});
+
+async function disconnect() {
+  keepReading = false;
+  if (reader) { try { await reader.cancel(); } catch (e) {} }
+  if (writer) { try { await writer.close(); } catch (e) {} try { await writer.releaseLock(); } catch (e) {} }
+  if (port) { try { await port.close(); } catch (e) { logLine("sys", "关闭端口警告: " + e.message); } }
+  writer = null; reader = null; port = null;
+  rxLineArr = [];   // 断开时清空半行缓冲
+  if (rxLineTimer) { clearTimeout(rxLineTimer); rxLineTimer = null; }
+  statusDot.className = "dot";
+  statusText.textContent = "未连接";
+  $("btnConnect").disabled = false;
+  $("btnDisconnect").disabled = true;
+  // 停止自动发送
+  stopAutoSend();
+  logLine("sys", `[${fmtTimestamp()}] 串口已断开`);
+}
+
+// ===== 接收循环 =====
+async function readLoop() {
+  if (readLoopActive) return;
+  readLoopActive = true;
+  while (port && port.readable && keepReading) {
+    reader = port.readable.getReader();
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) { keepReading = false; break; }
+        if (value && value.length) handleReceive(value);
+      }
+    } catch (err) {
+      if (keepReading) logLine("sys", `[${fmtTimestamp()}] 读取异常: ${err.message}`);
+    } finally {
+      try { reader.releaseLock(); } catch (e) {}
+    }
+  }
+  readLoopActive = false;
+}
+
+function appendRx(text) {
+  const div = document.createElement("div");
+  div.className = "rx";
+  div.textContent = `[RX ${fmtTimestamp()}] ` + text;
+  rxLog.appendChild(div);
+  rxLog.scrollTop = rxLog.scrollHeight;
+  while (rxLog.childNodes.length > 4000) rxLog.removeChild(rxLog.firstChild);
+}
+
+// 把一整行（已去掉结尾 \r\n）按当前显示模式渲染
+function flushLine(lineBytes) {
+  const arr = new Uint8Array(lineBytes);
+  if (rxMode === "text") {
+    let text = "";
+    try { text = new TextDecoder($("rxEncoding").value).decode(arr); } catch (e) {}
+    if (!rxWrap) text = text.replace(/[\r\n]+/g, " ");
+    appendRx(text);
+  } else if (rxMode === "ascii") {
+    appendRx(asciiEscape(arr));
+  } else {
+    appendRx(bytesToHex(arr));
+  }
+}
+
+// 设备不回换行符时，静默一段时间后把已攒的半行刷出来（带防抖）
+function flushPartial() {
+  rxLineTimer = null;
+  if (rxLineArr.length === 0) return;
+  const lineBytes = rxLineArr.slice();
+  rxLineArr = [];
+  flushLine(lineBytes);
+}
+function schedulePartialFlush() {
+  if (rxLineTimer) clearTimeout(rxLineTimer);
+  if (rxLineArr.length > 0) {
+    rxLineTimer = setTimeout(flushPartial, RX_IDLE_MS);
+  } else {
+    rxLineTimer = null;
+  }
+}
+
+function handleReceive(data) {
+  rxCount += data.length;
+  updateCount();
+  // 缓冲用于存盘
+  receivedChunks.push(data);
+
+  // 按行重组：仅在 文本/ASCII转义 模式下生效（十六进制保留原始分包显示）
+  if (rxReassemble && rxMode !== "hex") {
+    for (let i = 0; i < data.length; i++) rxLineArr.push(data[i]);
+    // 先按换行符拆出完整行（立即显示）
+    let idx;
+    while ((idx = rxLineArr.indexOf(0x0A)) !== -1) {
+      const lineBytes = rxLineArr.slice(0, idx);    // 含末尾 0x0D（若有）
+      rxLineArr = rxLineArr.slice(idx + 1);
+      if (lineBytes.length && lineBytes[lineBytes.length - 1] === 0x0D) lineBytes.pop();
+      flushLine(lineBytes);
+    }
+    // 设备可能不回换行符：静默 RX_IDLE_MS(10ms) 后把已收到的半行也刷出来，避免"看不到数据"
+    schedulePartialFlush();
+  } else {
+    if (rxMode === "text") {
+      let text = rxDecoder.decode(data, { stream: true });
+      if (!rxWrap) {
+        // 不换行模式：去掉换行符以便同行显示
+        text = text.replace(/[\r\n]+/g, " ");
+      }
+      appendRx(text);
+    } else if (rxMode === "ascii") {
+      appendRx(asciiEscape(data));
+    } else {
+      appendRx(bytesToHex(data));
+    }
+  }
+
+  // 自动存盘
+  if ($("autoSave").checked) {
+    const limit = parseInt($("autoSaveN").value, 10) || 65536;
+    if (rxCount >= limit) {
+      saveReceived(false);
+      receivedChunks = [];
+    }
+  }
+}
+
+// ===== 发送 =====
+async function doSend(bytes) {
+  if (!port || !writer) { logLine("sys", "未连接串口，无法发送"); return; }
+  try {
+    await writer.write(bytes);
+    txCount += bytes.length;
+    updateCount();
+    if (txMode === "text") {
+      logLine("tx", `[TX ${fmtTimestamp()}] ${new TextDecoder().decode(bytes)}`.trim());
+    } else {
+      logLine("tx", `[TX ${fmtTimestamp()}] ${bytesToHex(bytes)}`);
+    }
+  } catch (err) {
+    logLine("sys", `发送失败: ${err.message}`);
+  }
+}
+
+$("btnSend").addEventListener("click", async () => {
+  const raw = $("txInput").value;
+  if (!raw && txMode === "text") { logLine("sys", "发送内容为空"); return; }
+  let bytes;
+  try {
+    if (txMode === "text") {
+      let payload = raw;
+      if ($("txNewline").checked) payload += "\r\n";
+      bytes = new TextEncoder().encode(payload);
+    } else {
+      bytes = hexToBytes(raw);
+    }
+  } catch (e) {
+    logLine("sys", "解析发送数据失败: " + e.message);
+    return;
+  }
+  await doSend(bytes);
+});
+
+// ===== 发送文件（字节流） =====
+$("btnSendFile").addEventListener("click", () => {
+  if (!port) { logLine("sys", "请先连接串口再发送文件"); return; }
+  $("filePicker").click();
+});
+$("filePicker").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (!port || !writer) { logLine("sys", "串口未连接"); return; }
+  try {
+    const buf = await file.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    // 分块发送，避免大文件一次性写入阻塞
+    const CHUNK = 4096;
+    for (let off = 0; off < bytes.length; off += CHUNK) {
+      const slice = bytes.subarray(off, Math.min(off + CHUNK, bytes.length));
+      await doSend(slice);
+    }
+    logLine("sys", `文件已发送: ${file.name} (${bytes.length} 字节)`);
+  } catch (err) {
+    logLine("sys", "文件发送失败: " + err.message);
+  }
+  $("filePicker").value = "";
+});
+
+// ===== 保存接收为文件 =====
+function flattenChunks() {
+  let total = 0;
+  for (const c of receivedChunks) total += c.length;
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const c of receivedChunks) { out.set(c, off); off += c.length; }
+  return out;
+}
+function saveReceived(notify = true) {
+  if (receivedChunks.length === 0) { if (notify) logLine("sys", "暂无接收数据可保存"); return; }
+  const data = flattenChunks();
+  const blob = new Blob([data], { type: "application/octet-stream" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const ts = new Date().toISOString().replace(/[:.]/g, "-");
+  a.href = url;
+  a.download = `serial_rx_${ts}.bin`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  if (notify) logLine("sys", `已保存接收数据: ${data.length} 字节 -> serial_rx_${ts}.bin`);
+}
+$("btnSave").addEventListener("click", () => { saveReceived(true); receivedChunks = []; });
+
+// ===== 清空 =====
+$("btnClearTx").addEventListener("click", () => { $("txInput").value = ""; });
+$("btnClearRx").addEventListener("click", () => {
+  rxLog.innerHTML = ""; receivedChunks = []; rxCount = 0; updateCount();
+  try { rxDecoder = new TextDecoder($("rxEncoding").value); } catch (e) {}
+});
+
+// ===== 模式切换 =====
+$("txMode").querySelectorAll("button").forEach((b) => {
+  b.addEventListener("click", () => {
+    $("txMode").querySelectorAll("button").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    txMode = b.dataset.mode;
+    $("txInput").placeholder = txMode === "text" ? "输入要发送的内容…" : "例如： A1 B2 CC 0D 0A";
+    $("txNewline").disabled = txMode !== "text";
+  });
+});
+$("rxMode").querySelectorAll("button").forEach((b) => {
+  b.addEventListener("click", () => {
+    $("rxMode").querySelectorAll("button").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    rxMode = b.dataset.mode;
+    $("rxEncoding").disabled = rxMode !== "text";
+    rxLineArr = [];
+    if (rxLineTimer) { clearTimeout(rxLineTimer); rxLineTimer = null; }
+    rxLog.innerHTML = "";
+  });
+});
+$("rxWrap").querySelectorAll("button").forEach((b) => {
+  b.addEventListener("click", () => {
+    $("rxWrap").querySelectorAll("button").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    rxWrap = b.dataset.wrap === "on";
+  });
+});
+
+// ===== 自动发送 =====
+let autoTimer = null;
+function startAutoSend() {
+  stopAutoSend();
+  const iv = parseInt($("autoInterval").value, 10) || 1000;
+  autoTimer = setInterval(() => $("btnSend").click(), iv);
+  logLine("sys", `已开启自动发送，间隔 ${iv}ms`);
+}
+function stopAutoSend() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+}
+$("autoSend").addEventListener("change", (e) => {
+  if (e.target.checked) startAutoSend(); else { stopAutoSend(); logLine("sys", "已关闭自动发送"); }
+});
+
+// 页面关闭前尝试释放串口
+window.addEventListener("beforeunload", () => { if (port) port.close().catch(()=>{}); });
+
+logLine("sys", "工具已就绪，点击「连接串口」选择设备。");
+</script>
+</body>
+</html>
