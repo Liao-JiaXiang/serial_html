@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>哈希摘要计算工具</title>
+<style>
+  :root {
+    --bg: #f5f7fa;
+    --card: #ffffff;
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+    --accent: #eff6ff;
+    --ok: #059669;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 32px 16px;
+  }
+  .container { max-width: 820px; margin: 0 auto; }
+  h1 { font-size: 24px; margin: 0 0 6px; }
+  .subtitle { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--muted);
+  }
+  textarea {
+    width: 100%;
+    min-height: 100px;
+    resize: vertical;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    line-height: 1.5;
+    outline: none;
+    transition: border-color .15s;
+  }
+  textarea:focus { border-color: var(--primary); }
+  .toolbar { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+  button {
+    border: none;
+    border-radius: 8px;
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s, opacity .15s;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-ghost { background: var(--accent); color: var(--primary); }
+  .btn-ghost:hover { background: #dbeafe; }
+  .meta { font-size: 12px; color: var(--muted); margin-top: 8px; }
+
+  /* 拖拽区 */
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 28px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+    color: var(--muted);
+  }
+  .dropzone:hover { border-color: var(--primary); background: var(--accent); }
+  .dropzone.dragover { border-color: var(--primary); background: var(--accent); }
+  .dropzone .big { font-size: 15px; font-weight: 600; color: var(--text); }
+  .dropzone .small { font-size: 12px; margin-top: 4px; }
+  .file-info { font-size: 13px; color: var(--text); }
+  .file-info b { color: var(--primary); word-break: break-all; }
+
+  /* 结果区 */
+  .result-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 0;
+    border-bottom: 1px dashed var(--border);
+  }
+  .result-row:last-child { border-bottom: none; }
+  .result-label {
+    flex: 0 0 92px;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--primary);
+    padding-top: 4px;
+  }
+  .result-value {
+    flex: 1;
+    word-break: break-all;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    min-height: 38px;
+    color: var(--text);
+  }
+  .copy-btn {
+    flex: 0 0 auto;
+    background: var(--accent);
+    color: var(--primary);
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  .copy-btn:hover { background: #dbeafe; }
+  .empty { color: var(--muted); }
+  .source-tag {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ok);
+    background: #ecfdf5;
+    border-radius: 6px;
+    padding: 3px 10px;
+    margin-bottom: 12px;
+  }
+  .source-tag.file { color: #b45309; background: #fffbeb; }
+
+  /* 校验区 */
+  .verify-input {
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    line-height: 1.5;
+    outline: none;
+    transition: border-color .15s;
+  }
+  .verify-input:focus { border-color: var(--primary); }
+  .verify-status {
+    margin-top: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 12px;
+    border-radius: 8px;
+    display: none;
+  }
+  .verify-status.idle { display: block; color: var(--muted); background: #f8fafc; }
+  .verify-status.match { display: block; color: var(--ok); background: #ecfdf5; }
+  .verify-status.mismatch { display: block; color: #dc2626; background: #fef2f2; }
+
+  .toast {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: #111827;
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s, transform .2s;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  input[type=file] { display: none; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>哈希摘要计算工具</h1>
+  <p class="subtitle">支持文本输入与文件拖拽，计算 MD5、SHA-1、SHA-256、SHA-512 摘要，并可粘贴已有哈希值自动校验（全部按原始字节计算）。</p>
+
+  <!-- 文本输入 -->
+  <div class="card">
+    <label for="input">输入文本</label>
+    <textarea id="input" placeholder="在此输入或粘贴需要计算摘要的文本……"></textarea>
+    <div class="toolbar">
+      <button class="btn-primary" id="clearBtn">清空文本</button>
+      <button class="btn-ghost" id="sampleBtn">填入示例</button>
+    </div>
+    <div class="meta" id="meta">字符数：0 · 字节数（UTF-8）：0</div>
+  </div>
+
+  <!-- 文件拖拽 -->
+  <div class="card">
+    <label>计算文件哈希</label>
+    <div class="dropzone" id="dropzone">
+      <div class="big">将文件拖拽到此处</div>
+      <div class="small">或点击选择文件（支持任意类型，按原始字节计算）</div>
+    </div>
+    <input type="file" id="fileInput" multiple>
+    <div class="meta" id="fileMeta"></div>
+  </div>
+
+  <!-- 结果 -->
+  <div class="card">
+    <span class="source-tag" id="sourceTag" style="display:none;"></span>
+    <div class="result-row">
+      <div class="result-label">MD5</div>
+      <div class="result-value empty" id="md5">—</div>
+      <button class="copy-btn" data-target="md5">复制</button>
+    </div>
+    <div class="result-row">
+      <div class="result-label">SHA-1</div>
+      <div class="result-value empty" id="sha1">—</div>
+      <button class="copy-btn" data-target="sha1">复制</button>
+    </div>
+    <div class="result-row">
+      <div class="result-label">SHA-256</div>
+      <div class="result-value empty" id="sha256">—</div>
+      <button class="copy-btn" data-target="sha256">复制</button>
+    </div>
+    <div class="result-row">
+      <div class="result-label">SHA-512</div>
+      <div class="result-value empty" id="sha512">—</div>
+      <button class="copy-btn" data-target="sha512">复制</button>
+    </div>
+  </div>
+
+  <!-- 哈希校验 -->
+  <div class="card">
+    <label for="verifyInput">哈希值校验（粘贴已有哈希，自动比对）</label>
+    <input type="text" id="verifyInput" class="verify-input" placeholder="粘贴需要比对的哈希值（MD5 / SHA-1 / SHA-256 / SHA-512 均可），自动识别算法并比对……">
+    <div class="verify-status idle" id="verifyStatus">请先输入文本或拖入文件计算出摘要，再粘贴哈希值进行校验。</div>
+  </div>
+</div>
+
+<div class="toast" id="toast">已复制到剪贴板</div>
+
+<script>
+/* ============ MD5 实现（直接对字节计算，RFC 1321） ============ */
+const MD5_K = [
+  -680876936, -389564586,  606105819, -1044525330,  -176418897, 1200080426, -1473231341,  -45705983,
+  1770035416, -1958414417,    -42063, -1990404162,  1804603682,  -40341101, -1502002290, 1236535329,
+  -165796510, -1069501632,  643717713, -373897302,  -701558691,   38016083, -660478335, -405537848,
+   568446438, -1019803690, -187363961, 1163531501, -1444681467,  -51403784, 1735328473, -1926607734,
+   -378558, -2022574463, 1839030562,  -35309556, -1530992060, 1272893353,  -155497632, -1094730640,
+   681279174,  -358537222,  -722521979,   76029189,  -640364487, -421815835,   530742520, -995338651,
+  -198630844, 1126891415, -1416354905,  -57434055,  1700485571, -1894986606,    -1051523, -2054922799,
+  1873313359,  -30611744, -1560198380, 1309151649,   -145523070, -1120210379,  718787259, -343485551
+];
+const MD5_S = [
+  7,12,17,22,7,12,17,22,7,12,17,22,7,12,17,22,
+  5, 9,14,20,5, 9,14,20,5, 9,14,20,5, 9,14,20,
+  4,11,16,23,4,11,16,23,4,11,16,23,4,11,16,23,
+  6,10,15,21,6,10,15,21,6,10,15,21,6,10,15,21
+];
+function rotl(x, c) { return (x << c) | (x >>> (32 - c)); }
+
+function md5Bytes(bytes) {
+  const msgLen = bytes.length;
+  // 填充：补 0x80，补 0 直到长度 ≡ 56 (mod 64)，再附 64-bit 小端长度
+  let newLen = msgLen + 1;
+  while (newLen % 64 !== 56) newLen++;
+  newLen += 8;
+  const m = new Uint8Array(newLen);
+  m.set(bytes);
+  m[msgLen] = 0x80;
+  const dv = new DataView(m.buffer);
+  const bitLen = msgLen * 8;
+  dv.setUint32(newLen - 8, bitLen >>> 0, true);
+  dv.setUint32(newLen - 4, Math.floor(bitLen / 0x100000000), true);
+
+  let a0 = 0x67452301, b0 = 0xEFCDAB89, c0 = 0x98BADCFE, d0 = 0x10325476;
+  const M = new Int32Array(16);
+  for (let off = 0; off < newLen; off += 64) {
+    for (let i = 0; i < 16; i++) M[i] = dv.getInt32(off + i * 4, true);
+    let A = a0, B = b0, C = c0, D = d0;
+    for (let i = 0; i < 64; i++) {
+      let F, g;
+      if (i < 16)      { F = (B & C) | (~B & D);            g = i; }
+      else if (i < 32) { F = (D & B) | (~D & C);            g = (5 * i + 1) % 16; }
+      else if (i < 48) { F = B ^ C ^ D;                     g = (3 * i + 5) % 16; }
+      else             { F = C ^ (B | ~D);                  g = (7 * i) % 16; }
+      F = (F + A + MD5_K[i] + M[g]) & 0xFFFFFFFF;
+      A = D; D = C; C = B;
+      B = (B + rotl(F, MD5_S[i])) & 0xFFFFFFFF;
+    }
+    a0 = (a0 + A) & 0xFFFFFFFF;
+    b0 = (b0 + B) & 0xFFFFFFFF;
+    c0 = (c0 + C) & 0xFFFFFFFF;
+    d0 = (d0 + D) & 0xFFFFFFFF;
+  }
+  const le = x =>
+    ((x & 0xFF).toString(16).padStart(2, "0")) +
+    (((x >>> 8) & 0xFF).toString(16).padStart(2, "0")) +
+    (((x >>> 16) & 0xFF).toString(16).padStart(2, "0")) +
+    (((x >>> 24) & 0xFF).toString(16).padStart(2, "0"));
+  return le(a0) + le(b0) + le(c0) + le(d0);
+}
+
+/* ============ SHA-1 / SHA-256 使用 Web Crypto API ============ */
+function bufToHex(buf) {
+  return Array.from(new Uint8Array(buf))
+    .map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+/* ============ 交互逻辑 ============ */
+const input = document.getElementById("input");
+const md5El = document.getElementById("md5");
+const sha1El = document.getElementById("sha1");
+const sha256El = document.getElementById("sha256");
+const sha512El = document.getElementById("sha512");
+const meta = document.getElementById("meta");
+const sourceTag = document.getElementById("sourceTag");
+const toast = document.getElementById("toast");
+const dropzone = document.getElementById("dropzone");
+const fileInput = document.getElementById("fileInput");
+const fileMeta = document.getElementById("fileMeta");
+const verifyInput = document.getElementById("verifyInput");
+const verifyStatus = document.getElementById("verifyStatus");
+
+let timer = null;
+let currentHashes = null; // { md5, sha1, sha256, sha512 }
+
+function setVal(el, val, isEmpty) {
+  el.textContent = val;
+  el.classList.toggle("empty", !!isEmpty);
+}
+function setSource(text, isFile) {
+  sourceTag.textContent = text;
+  sourceTag.className = "source-tag" + (isFile ? " file" : "");
+  sourceTag.style.display = "inline-block";
+}
+
+function updateMeta() {
+  const text = input.value;
+  const byteLen = new TextEncoder().encode(text).length;
+  meta.textContent = `字符数：${text.length} · 字节数（UTF-8）：${byteLen}`;
+}
+
+async function computeText() {
+  const text = input.value;
+  updateMeta();
+  if (text.length === 0) {
+    setSource("", false); sourceTag.style.display = "none";
+    setVal(md5El, "—", true);
+    setVal(sha1El, "—", true);
+    setVal(sha256El, "—", true);
+    setVal(sha512El, "—", true);
+    currentHashes = null;
+    runVerify();
+    return;
+  }
+  setSource("文本输入", false);
+  const bytes = new TextEncoder().encode(text);
+  const md5 = md5Bytes(bytes);
+  setVal(md5El, md5, false);
+  try {
+    const [s1, s256, s512] = await Promise.all([
+      crypto.subtle.digest("SHA-1", bytes),
+      crypto.subtle.digest("SHA-256", bytes),
+      crypto.subtle.digest("SHA-512", bytes)
+    ]);
+    const sha1 = bufToHex(s1), sha256 = bufToHex(s256), sha512 = bufToHex(s512);
+    setVal(sha1El, sha1, false);
+    setVal(sha256El, sha256, false);
+    setVal(sha512El, sha512, false);
+    currentHashes = { md5, sha1, sha256, sha512 };
+  } catch (e) {
+    setVal(sha1El, "计算出错：" + e.message, false);
+    setVal(sha256El, "计算出错：" + e.message, false);
+    setVal(sha512El, "计算出错：" + e.message, false);
+    currentHashes = null;
+  }
+  runVerify();
+}
+
+async function computeFile(file) {
+  fileMeta.textContent = "正在计算……";
+  setSource("文件：" + file.name, true);
+  // MD5（同步，基于字节）
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  const md5 = md5Bytes(bytes);
+  setVal(md5El, md5, false);
+  try {
+    const [s1, s256, s512] = await Promise.all([
+      crypto.subtle.digest("SHA-1", buf),
+      crypto.subtle.digest("SHA-256", buf),
+      crypto.subtle.digest("SHA-512", buf)
+    ]);
+    const sha1 = bufToHex(s1), sha256 = bufToHex(s256), sha512 = bufToHex(s512);
+    setVal(sha1El, sha1, false);
+    setVal(sha256El, sha256, false);
+    setVal(sha512El, sha512, false);
+    currentHashes = { md5, sha1, sha256, sha512 };
+    fileMeta.textContent = `已计算：${file.name} · ${formatSize(file.size)}`;
+  } catch (e) {
+    setVal(sha1El, "计算出错：" + e.message, false);
+    setVal(sha256El, "计算出错：" + e.message, false);
+    setVal(sha512El, "计算出错：" + e.message, false);
+    fileMeta.textContent = "";
+    currentHashes = null;
+  }
+  runVerify();
+}
+
+function formatSize(n) {
+  if (n < 1024) return n + " B";
+  if (n < 1024 * 1024) return (n / 1024).toFixed(2) + " KB";
+  if (n < 1024 * 1024 * 1024) return (n / 1024 / 1024).toFixed(2) + " MB";
+  return (n / 1024 / 1024 / 1024).toFixed(2) + " GB";
+}
+
+function debouncedComputeText() {
+  clearTimeout(timer);
+  timer = setTimeout(computeText, 150);
+}
+
+/* 哈希校验：粘贴已有哈希，自动识别算法并比对 */
+function runVerify() {
+  const raw = verifyInput.value.trim().replace(/\s+/g, "").toLowerCase();
+  if (!raw) {
+    verifyStatus.className = "verify-status idle";
+    verifyStatus.textContent = currentHashes
+      ? "输入哈希值后，将自动与上方摘要比对。"
+      : "请先输入文本或拖入文件计算出摘要，再粘贴哈希值进行校验。";
+    return;
+  }
+  if (!/^[0-9a-f]+$/.test(raw)) {
+    verifyStatus.className = "verify-status mismatch";
+    verifyStatus.textContent = "输入不是有效的十六进制哈希值（仅含 0-9 与 a-f）。";
+    return;
+  }
+  if (!currentHashes) {
+    verifyStatus.className = "verify-status idle";
+    verifyStatus.textContent = "尚未计算出摘要，请先输入文本或拖入文件。";
+    return;
+  }
+  const matched = [];
+  if (currentHashes.md5 === raw) matched.push("MD5");
+  if (currentHashes.sha1 === raw) matched.push("SHA-1");
+  if (currentHashes.sha256 === raw) matched.push("SHA-256");
+  if (currentHashes.sha512 === raw) matched.push("SHA-512");
+  if (matched.length > 0) {
+    verifyStatus.className = "verify-status match";
+    verifyStatus.textContent = "✓ 校验通过：与 " + matched.join(" / ") + " 摘要一致";
+  } else {
+    verifyStatus.className = "verify-status mismatch";
+    verifyStatus.textContent = "✗ 校验失败：与所有摘要均不一致";
+  }
+}
+
+/* 文本事件 */
+input.addEventListener("input", debouncedComputeText);
+document.getElementById("clearBtn").addEventListener("click", () => {
+  input.value = ""; computeText(); input.focus();
+});
+document.getElementById("sampleBtn").addEventListener("click", () => {
+  input.value = "Hello, WorkBuddy! 你好，世界！"; computeText();
+});
+
+/* 校验输入框 */
+verifyInput.addEventListener("input", runVerify);
+
+/* 文件事件 */
+dropzone.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", e => {
+  if (e.target.files && e.target.files[0]) computeFile(e.target.files[0]);
+});
+["dragenter", "dragover"].forEach(ev =>
+  dropzone.addEventListener(ev, e => {
+    e.preventDefault(); e.stopPropagation();
+    dropzone.classList.add("dragover");
+  })
+);
+["dragleave", "drop"].forEach(ev =>
+  dropzone.addEventListener(ev, e => {
+    e.preventDefault(); e.stopPropagation();
+    dropzone.classList.remove("dragover");
+  })
+);
+dropzone.addEventListener("drop", e => {
+  const files = e.dataTransfer.files;
+  if (files && files[0]) computeFile(files[0]);
+});
+
+/* 复制 */
+document.querySelectorAll(".copy-btn").forEach(btn => {
+  btn.addEventListener("click", async () => {
+    const target = document.getElementById(btn.dataset.target);
+    const text = target.textContent;
+    if (!text || text === "—") return;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {
+      const ta = document.createElement("textarea");
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      document.execCommand("copy"); document.body.removeChild(ta);
+    }
+    toast.classList.add("show");
+    setTimeout(() => toast.classList.remove("show"), 1500);
+  });
+});
+
+updateMeta();
+</script>
+</body>
+</html>
