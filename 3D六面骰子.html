@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D六面骰子</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            overflow: hidden;
+        }
+        .container {
+            text-align: center;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 500px;
+            padding: 0 20px;
+        }
+        h1 {
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+        }
+        .dice-container {
+            perspective: 1000px;
+            margin: 20px auto;
+            display: flex;
+            justify-content: center;
+        }
+        .dice {
+            width: 120px;
+            height: 120px;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: white;
+            border: 2px solid #333;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.1), 0 0 15px rgba(0, 0, 0, 0.3);
+        }
+        .dot {
+            width: 20px;
+            height: 20px;
+            background: #333;
+            border-radius: 50%;
+            position: absolute;
+        }
+        /* 面的初始位置 */
+        .face-1  { transform: translateZ(60px); }
+        .face-2  { transform: rotateY(180deg) translateZ(60px); }
+        .face-3  { transform: rotateY(90deg) translateZ(60px); }
+        .face-4  { transform: rotateY(-90deg) translateZ(60px); }
+        .face-5  { transform: rotateX(90deg) translateZ(60px); }
+        .face-6  { transform: rotateX(-90deg) translateZ(60px); }
+
+        /* 点数布局 */
+        /* 一点 */
+        .one .center { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        /* 两点 */
+        .two .topleft { top: 20%; left: 20%; }
+        .two .bottomright { bottom: 20%; right: 20%; }
+        /* 三点 */
+        .three .topleft { top: 20%; left: 20%; }
+        .three .center { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .three .bottomright { bottom: 20%; right: 20%; }
+        /* 四点 */
+        .four .topleft { top: 20%; left: 20%; }
+        .four .topright { top: 20%; right: 20%; }
+        .four .bottomleft { bottom: 20%; left: 20%; }
+        .four .bottomright { bottom: 20%; right: 20%; }
+        /* 五点 */
+        .five .topleft { top: 20%; left: 20%; }
+        .five .topright { top: 20%; right: 20%; }
+        .five .center { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .five .bottomleft { bottom: 20%; left: 20%; }
+        .five .bottomright { bottom: 20%; right: 20%; }
+        /* 六点 */
+        .six .topleft { top: 20%; left: 20%; }
+        .six .topright { top: 20%; right: 20%; }
+        .six .middleleft { top: 50%; left: 20%; transform: translateY(-50%); }
+        .six .middleright { top: 50%; right: 20%; transform: translateY(-50%); }
+        .six .bottomleft { bottom: 20%; left: 20%; }
+        .six .bottomright { bottom: 20%; right: 20%; }
+
+        .roll-button {
+            padding: 15px 30px;
+            font-size: 18px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 6px 0 #388E3C, 0 10px 20px rgba(0, 0, 0, 0.3);
+            transition: all 0.1s ease;
+            outline: none;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        .roll-button:hover {
+            background: #66BB6A;
+        }
+        .roll-button:active {
+            box-shadow: 0 2px 0 #388E3C, 0 6px 10px rgba(0, 0, 0, 0.3);
+            transform: translateY(4px);
+        }
+        .roll-button:disabled {
+            background: #ccc;
+            box-shadow: 0 2px 0 #999, 0 6px 10px rgba(0, 0, 0, 0.3);
+            cursor: not-allowed;
+        }
+        .result {
+            color: white;
+            font-size: 24px;
+            margin-top: 20px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+            font-weight: bold;
+        }
+        .history {
+            color: white;
+            margin-top: 20px;
+            max-width: 100%;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px 18px 10px 10px; /* 右侧额外添加8px的padding为滚动条预留空间 */
+            border-radius: 10px;
+            height: 120px;
+            overflow-y: auto;
+            scrollbar-gutter: stable;
+            box-sizing: border-box;
+        }
+        .history p {
+            margin: 5px 0;
+        }
+        
+        /* 自定义滚动条样式 */
+        .history::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .history::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+        
+        .history::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+            transition: background 0.3s ease;
+        }
+        
+        .history::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.7);
+        }
+        @media (max-width: 600px) {
+            .dice {
+                width: 100px;
+                height: 100px;
+            }
+            .face {
+                border-radius: 10px;
+            }
+            .dot {
+                width: 16px;
+                height: 16px;
+            }
+            .face-1  { transform: translateZ(50px); }
+            .face-2  { transform: rotateY(180deg) translateZ(50px); }
+            .face-3  { transform: rotateY(90deg) translateZ(50px); }
+            .face-4  { transform: rotateY(-90deg) translateZ(50px); }
+            .face-5  { transform: rotateX(90deg) translateZ(50px); }
+            .face-6  { transform: rotateX(-90deg) translateZ(50px); }
+            .roll-button {
+                padding: 12px 24px;
+                font-size: 16px;
+            }
+            h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>🎲 3D六面骰子 🎲</h1>
+        <div class="dice-container">
+            <!-- 骰子的6个面 -->
+            <div class="dice" id="dice">
+                <div class="face face-1 one">
+                    <div class="dot center"></div>
+                </div>
+                <div class="face face-2 two">
+                    <div class="dot topleft"></div>
+                    <div class="dot bottomright"></div>
+                </div>
+                <div class="face face-3 three">
+                    <div class="dot topleft"></div>
+                    <div class="dot center"></div>
+                    <div class="dot bottomright"></div>
+                </div>
+                <div class="face face-4 four">
+                    <div class="dot topleft"></div>
+                    <div class="dot topright"></div>
+                    <div class="dot bottomleft"></div>
+                    <div class="dot bottomright"></div>
+                </div>
+                <div class="face face-5 five">
+                    <div class="dot topleft"></div>
+                    <div class="dot topright"></div>
+                    <div class="dot center"></div>
+                    <div class="dot bottomleft"></div>
+                    <div class="dot bottomright"></div>
+                </div>
+                <div class="face face-6 six">
+                    <div class="dot topleft"></div>
+                    <div class="dot topright"></div>
+                    <div class="dot middleleft"></div>
+                    <div class="dot middleright"></div>
+                    <div class="dot bottomleft"></div>
+                    <div class="dot bottomright"></div>
+                </div>
+            </div>
+        </div>
+        <button class="roll-button" id="rollButton">投掷骰子</button>
+        <div class="result" id="result">点击按钮投掷骰子！</div>
+        <div class="history" id="history"></div>
+    </div>
+
+    <script>
+        const dice = document.getElementById('dice');
+        const rollButton = document.getElementById('rollButton');
+        const resultDisplay = document.getElementById('result');
+        const historyDisplay = document.getElementById('history');
+        let rollHistory = [];
+        let rollnumber = 1;
+        const maxHistory = 10;
+
+        // 定义每个数字对应的旋转角度
+        function getRotationForFace(faceNumber) {
+            switch(faceNumber) {
+                case 1: // 面1 - 不需要旋转
+                    return { x: 0, y: 0, z: 0 };
+                case 2: // 面2 -> 绕Y轴旋转180度
+                    return { x: 0, y: 180, z: 0 };
+                case 3: // 面3 -> 绕Y轴逆时针旋转90度
+                    return { x: 0, y: -90, z: 0 };
+                case 4: // 面4 -> 绕Y轴顺时针旋转90度
+                    return { x: 0, y: 90, z: 0 };
+                case 5: // 面5 -> 绕X轴逆时针旋转90度
+                    return { x: -90, y: 0, z: 0 };
+                case 6: // 面6 -> 绕X轴顺时针旋转90度
+                    return { x: 90, y: 0, z: 0 };
+                default:
+                    return { x: 0, y: 0, z: 0 };
+            }
+        }
+
+        function rollDice() {
+            // 生成1-6的随机数
+            const result = Math.floor(Math.random() * 6) + 1;
+            
+            // 获取目标面的旋转角度
+            const baseRotation = getRotationForFace(result);
+            
+            // 添加随机的旋转倍数以增加滚动效果，但确保最终状态正确
+            const randomSpinsX = Math.floor(Math.random() * 5) + 2; // 2-6圈X轴旋转
+            const randomSpinsY = Math.floor(Math.random() * 5) + 2; // 2-6圈Y轴旋转
+            const randomSpinsZ = Math.floor(Math.random() * 5) + 2; // 2-6圈Z轴旋转
+            
+            const finalRotation = {
+                x: baseRotation.x + randomSpinsX * 360,
+                y: baseRotation.y + randomSpinsY * 360,
+                z: baseRotation.z + randomSpinsZ * 360
+            };
+
+            // 应用旋转动画
+            dice.style.transform = `rotateX(${finalRotation.x}deg) rotateY(${finalRotation.y}deg) rotateZ(${finalRotation.z}deg)`;
+
+            // 显示结果
+            resultDisplay.textContent = `你投出了: ${result}`;
+            
+            // 添加到历史记录
+            rollHistory.unshift(`第 ${rollnumber++} 次: ${result}`);
+            if (rollHistory.length > maxHistory) {
+                rollHistory.pop();
+            }
+            updateHistoryDisplay();
+
+            // 防止在动画期间重复点击
+            rollButton.disabled = true;
+            setTimeout(() => {
+                rollButton.disabled = false;
+            }, 1200);
+        }
+
+        function updateHistoryDisplay() {
+            historyDisplay.innerHTML = '<p><strong>历史记录:</strong></p>' + rollHistory.map(r => `<p>${r}</p>`).join('');
+        }
+
+        // 添加鼠标点击和键盘空格键触发
+        rollButton.addEventListener('click', rollDice);
+        document.addEventListener('keydown', (event) => {
+            if (event.code === 'Space' && !rollButton.disabled) {
+                rollDice();
+            }
+        });
+
+        // 添加触摸支持
+        dice.addEventListener('touchstart', (e) => {
+            if (!rollButton.disabled) {
+                e.preventDefault();
+                rollDice();
+            }
+        }, { passive: false });
+
+        // 初始显示
+        window.addEventListener('load', () => {
+            // 延迟初始化，确保DOM完全加载
+            setTimeout(() => {
+                // rollDice(); // 第一次加载时自动投掷一次
+            }, 500);
+        });
+    </script>
+
+</body>
+</html>
